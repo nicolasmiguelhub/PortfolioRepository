@@ -1,0 +1,40 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.SceneManagement;
+
+public class TimerController : MonoBehaviour
+{
+    [SerializeField] int min, sec;
+    [SerializeField] Text _Time;
+
+    private float remaining;
+    private bool inMove;
+
+    private void Awake()
+    {
+        remaining = (min * 60) + sec;
+        inMove = true;
+    }
+
+    
+    void Update()
+    {
+        if (inMove)
+        {
+            remaining -= Time.deltaTime;
+            if (remaining < 1)
+            {
+                inMove = true;
+                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+
+            }
+            int tempMin = Mathf.FloorToInt(remaining / 60);
+            int tempSec = Mathf.FloorToInt(remaining % 60);
+            _Time.text = string.Format("{00:00} : {01:00}", tempMin, tempSec);
+
+        }
+        
+    }
+}
