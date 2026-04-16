@@ -1,0 +1,81 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+public enum BulletType { PLAYER, ENEMY }
+public class BulletControl : MonoBehaviour
+{
+    public BulletType type;
+    public float speed = 5;
+    private int Dir;
+
+    private GameManager Manager;
+
+    public void InitBullet(BulletType _type, float _speed, GameManager _manager)
+    {
+        type = _type;
+        speed = _speed;
+        Manager = _manager;
+
+        if (_type == BulletType.PLAYER)
+        {
+            Dir = 1;
+        }
+        else
+        {
+            Dir = -1;
+        }
+    }
+
+    void Update()
+    {
+        transform.Translate(Vector2.up * Dir * speed * Time.deltaTime);
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        switch (type)
+        {
+            case BulletType.PLAYER:
+                if (collision.tag == "Enemy")
+                {
+                    Manager.GetDamageEnemy(collision.gameObject);
+                    Destroy(gameObject);
+                }
+                break;
+            case BulletType.ENEMY:
+                if (collision.tag == "Player")
+                {
+                    Manager.GetDamagePlayer();
+                    Destroy(gameObject);
+                }
+                break;
+
+        }
+
+        if (collision.tag == "Bullet")
+        {
+
+            BulletExplosion();
+
+        }
+        if (collision.tag == "Wall")
+        {
+            Destroy(collision.gameObject);
+            BulletExplosion();
+        }
+
+
+    }
+
+    private void BulletExplosion()
+    {
+        speed = 0;
+        gameObject.GetComponent<BoxCollider2D>().enabled = false;
+
+        SpriteRenderer BulletSprite = transform.GetChild(0).GetComponent<SpriteRenderer>();
+
+        gameObject.AddComponent<AnimControl>().InitAnim(BulletSprite, new List<Sprite>(Resources.LoadAll<Sprite>("Explosion")), 0.05f, AnimType.ONCE);
+
+    }
+
+}
