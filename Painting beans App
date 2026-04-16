@@ -1,0 +1,232 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
+
+public class AppManager : MonoBehaviour
+{
+    public enum ToolStateValues { BRUSH, ERASE, CLEAR, FILL, PATTERN, RANDOM, DROP};
+    public ToolStateValues ToolState;
+
+    public RectTransform mainCanvas, parentBoard;
+    public GameObject bead;
+    public Transform boardGrid;
+
+    public Color currentColor;
+
+    public List<GameObject> allBeads;
+
+    public Image ImageCurrentColor;
+
+    [System.Serializable]
+    public class PatternProperties
+    {
+        public List<Vector2> pos;
+    }
+
+    public List<PatternProperties> pattern;
+
+    public int currentPattern;
+
+    public Text currentTool;
+    // Start is called before the first frame update
+    void Start()
+    {
+        float sizeX = mainCanvas.sizeDelta.x;
+        float sizeY = mainCanvas.sizeDelta.y;
+        print(sizeX);
+
+        float boardLeft = parentBoard.offsetMin.x;
+        float boardRight = parentBoard.offsetMax.x;
+
+        float boardUp = parentBoard.offsetMin.y;
+        float boardDown = parentBoard.offsetMax.y;
+
+        float totalBoardX = sizeX - (boardLeft + Mathf.Abs(boardRight));
+        float totalBoardY = sizeY - (boardUp + Mathf.Abs(boardDown));
+
+        int BeadsX = (int) (totalBoardX / 20); 
+        int BeadsY = (int) (totalBoardY / 20); 
+       
+        int totalBead = BeadsX * BeadsY;
+
+
+        for (int i = 0; i < totalBead; i++)
+        {
+            GameObject newBead = Instantiate(bead, boardGrid);
+
+            Image beadImage = newBead.GetComponent<Image>();
+
+            EventTrigger newTrigger = newBead.AddComponent<EventTrigger>();
+            EventTrigger.Entry pointerDown = new EventTrigger.Entry();
+            pointerDown.eventID = EventTriggerType.PointerDown;
+            pointerDown.callback.AddListener(delegate
+            {
+                PaintBead(beadImage);
+            });
+
+            
+            EventTrigger.Entry pointerEnter = new EventTrigger.Entry();
+            pointerEnter.eventID = EventTriggerType.PointerEnter;
+            pointerEnter.callback.AddListener(delegate
+            {
+                PaintBead(beadImage);
+            });
+
+            newTrigger.triggers.Add(pointerEnter);
+            newTrigger.triggers.Add(pointerDown);
+
+            allBeads.Add(newBead);
+
+
+        }
+
+    }
+    private void PaintBead(Image _bead)
+    {
+        if (ToolState == ToolStateValues.BRUSH)
+        {
+
+            if (Input.GetMouseButton(0) || Input.GetMouseButtonDown(0))
+            {
+                _bead.color = currentColor;
+            }
+        }
+        else if (ToolState == ToolStateValues.ERASE)
+        {
+            if (Input.GetMouseButton(0) || Input.GetMouseButtonDown(0))
+            {
+                _bead.color = Color.white;
+            }
+          
+        }
+        else if (ToolState == ToolStateValues.FILL)
+        {
+            if (Input.GetMouseButtonDown(0))
+            {
+                Color saveColor = _bead.color;
+
+                for (int i = 0; i < allBeads.Count; i++)
+                {
+                    if (allBeads[i].GetComponent<Image>().color == saveColor)
+                    {
+                        allBeads[i].GetComponent<Image>().color = currentColor;
+                    }
+                }
+            }
+        }
+        else if (ToolState == ToolStateValues.PATTERN)
+        {
+            if (Input.GetMouseButtonDown(0) || Input.GetMouseButton(0))
+            {
+                for (int i = 0; i < pattern[currentPattern].pos.Count; i++)
+                {
+                    float beadX = _bead.transform.localPosition.x + pattern[currentPattern].pos[i].x * 20;
+
+                    float beadY = _bead.transform.localPosition.y + pattern[currentPattern].pos[i].y * 20;
+
+                    SetBead(new Vector2((int)beadX, (int)beadY));
+
+                }
+            }
+        }
+        else if (ToolState ==ToolStateValues.RANDOM)
+        {
+            if (Input.GetMouseButtonDown(0) || Input.GetMouseButton(0))
+            {
+                Color newColor = new Color(Random.Range(0f, 1f), Random.Range(0f, 1f), Random.Range(0f, 1f), 1f);
+                _bead.color = newColor;
+            }
+        }
+        else if (ToolState == ToolStateValues.DROP)
+        {
+            if (Input.GetMouseButtonDown(0))
+            {
+               ChangeColor(_bead);
+            }
+        }
+
+    }
+
+    private void SetBead(Vector2 _pos)
+    {
+        for (int i = 0; i < allBeads.Count; i++)
+        {
+            int PosX = (int)allBeads[i].transform.localPosition.x;
+            int PosY = (int)allBeads[i].transform.localPosition.y;
+
+            Vector2 beadPos = new Vector2(PosX, PosY);
+
+            if (beadPos == _pos)
+            {
+                allBeads[i].GetComponent<Image>().color = currentColor;
+                break;
+            }
+        }
+    }
+    public void SetBrush()
+    {
+        ToolState = ToolStateValues.BRUSH;
+        ChangeTextCurrentTool("BRUSH");
+    }
+
+    public void SetErase()
+    {
+        ToolState = ToolStateValues.ERASE;
+        ChangeTextCurrentTool("ERASE");
+    }
+
+    public void SetClear()
+    {
+        ToolState = ToolStateValues.CLEAR;
+
+        for (int i = 0; i < allBeads.Count; i++)
+        {
+            allBeads[i].GetComponent<Image>().color = Color.white;
+        }
+        ChangeTextCurrentTool("CLEAR");
+
+    }
+
+    public void SetFill()
+    {
+        ToolState = ToolStateValues.FILL;
+        ChangeTextCurrentTool("FILL");
+    }
+
+    public void SetPattern(int _pattern)
+    {
+        ToolState = ToolStateValues.PATTERN;
+        currentPattern = _pattern;
+        ChangeTextCurrentTool("PATTERN");
+    }
+    public void SetRandom()
+    {
+        ToolState = ToolStateValues.RANDOM;
+        ChangeTextCurrentTool("RANDOM");
+    }
+
+    public void SetDrop()
+    {
+        ToolState = ToolStateValues.DROP;
+        ChangeTextCurrentTool("DROP");
+    }
+
+    public void ChangeTextCurrentTool(string _nameTool)
+    {
+        currentTool.text = _nameTool;
+    }
+    public void ChangeColor (Image _toolColor)
+    {
+        currentColor = _toolColor.color;
+        ImageCurrentColor.color = currentColor;
+    }
+
+
+    // Update is called once per frame
+    void Update()
+    {
+        
+    }
+}
