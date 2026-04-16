@@ -1,0 +1,45 @@
+public enum AnimType { ONCE, LOOP }
+public class AnimControl : MonoBehaviour
+{
+    private SpriteRenderer Rend;
+    private List<Sprite> AnimSprite;
+    private float SpeedAnim;
+    private int CurrentSprite;
+
+    float RateAnim;
+
+    private AnimType Type;
+
+    public void InitAnim(SpriteRenderer _rend, List<Sprite> _anim, float _speed, AnimType _type)
+    {
+        Rend = _rend;
+        AnimSprite = _anim;
+        SpeedAnim = _speed;
+        Type = _type;
+        CurrentSprite = 0;
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        RateAnim += Time.deltaTime;
+        if (RateAnim >= SpeedAnim)
+        {
+            Rend.sprite = AnimSprite[CurrentSprite];
+            CurrentSprite++;
+            if (CurrentSprite >= AnimSprite.Count)
+            {
+                if (Type == AnimType.LOOP)
+                {
+                    CurrentSprite = 0;
+                }
+                else
+                {
+                    Destroy(gameObject);
+                }
+                
+            }
+            RateAnim = 0;
+        }
+    }
+}
