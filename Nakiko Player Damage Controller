@@ -1,0 +1,39 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Getdamage : MonoBehaviour
+{
+
+    public string[] tags;
+    public bool instaKill;
+    public Vector2Int randomDamage;
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        SetDamageCollider(collision.tag, collision.gameObject);   
+    }
+    private void SetDamageCollider(string tag, GameObject other)
+    {
+        for (int i = 0; i < tags.Length; i++)
+        {
+            if (tags [i] == tag)
+            {
+                int damage = Random.Range(randomDamage.x, randomDamage.y);
+
+                if (instaKill && damage> randomDamage.y / 3)
+                {
+                    damage = 9999;
+                }
+
+                if (other.GetComponent<lifeController>()!= null)
+                {
+                    other.GetComponent<lifeController>().SetDamage(damage);
+
+                    return;
+                }
+            }
+        }
+    }
+
+}
