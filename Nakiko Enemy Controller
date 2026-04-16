@@ -1,0 +1,49 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Enemycontroller : MonoBehaviour
+{
+    private Rigidbody2D rb;
+    public float speed;
+
+    public LayerMask colMask;
+    int direction;
+
+    public int lifePoints;
+    // Start is called before the first frame update
+    void Start()
+    {
+        // Si el numero es 0, la dirección es -1, si no la dirección es 1
+        direction = Random.Range(0, 2) == 0 ? -1 : 1;
+        rb = GetComponent<Rigidbody2D>();
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        rb.velocity = new Vector2(direction * speed, rb.velocity.y);
+
+        Vector2 detectPosition = transform.position;
+        detectPosition.x += 02f * direction;
+
+        Collider2D detector = Physics2D.OverlapCircle(detectPosition, 0.2f, colMask);
+        if (detector !=null)
+        {
+            direction *= -1;
+        }
+    }
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.tag == "Bullet")
+        {
+            Destroy(collision.gameObject);
+            lifePoints -= Random.Range(10, 15);
+            if (lifePoints <= 0)
+            {
+                ScoreControl.SetScore(5);
+                Destroy(gameObject);
+            }
+        }
+    }
+}
