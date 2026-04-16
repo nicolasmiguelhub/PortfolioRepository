@@ -1,0 +1,28 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class playercontroller : MonoBehaviour
+{
+    Rigidbody2D rb;
+    public float speed;
+    public float jumpForce;
+   
+    //Give RigidBody 2D.
+    void Start()
+    {
+        rb = GetComponent<Rigidbody2D>();
+    }
+
+    //Makes Player Able to Move and Jump.
+    void Update()
+    {
+        rb.velocity = new Vector2(Input.GetAxis("Horizontal") * speed, rb.velocity.y);
+
+        if (Input.GetButtonDown("Jump"))
+        {
+            rb.AddForce(Vector2.up * jumpForce);
+        }
+
+    }
+}
