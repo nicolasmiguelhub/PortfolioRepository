@@ -2,37 +2,198 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class MovingPlatform : MonoBehaviour
+public class playermovement : MonoBehaviour
 {
-    public Transform platform;
-    public Transform parentPoints;
-    private List<Transform> points = new List<Transform>();
-    private int currentPoint;
-    public float speed;
+    [Header("Player Movement")]
+    private float speed = 7f;
+    [SerializeField] private float MotionSmoothing;
+    private Vector3 velocity = Vector3.zero;
+    private bool facingright = true;
+
+    [Header("Player Jump / Doble Jump")]
+    public float jumpPower;
+    public int extraJumps;
+    float jumpCoolDown;
+    int jumpCount = 0;
+
+    [Header("Grounded")]
+    [SerializeField] LayerMask groundLayer;
+    [SerializeField] Transform feet;
+    bool isGrounded;
+
+    [Header("Wall Jump")]
+    public float wallJumpTime;
+    public float wallSlideSpeed;
+    public float wallDistance;
+    bool isWallSliding = false;
+    RaycastHit2D WallCheckHit;
+    float jumpTime;
+
+    [Header ("Object References")]
+    Rigidbody2D _rb;
+
+    [Header ("Player Shot")]
+    public Transform shootParent;
+    public GameObject bulletPrefab;
+
+    //Private Variables
+    bool isFacingRight = true;
+    float mx;
+
     void Start()
     {
-        currentPoint = 0;
-        for (int i = 0; i < parentPoints.childCount; i++)
-        {
-            points.Add(parentPoints.GetChild(i));
-            platform.position = points[0].position;
-        }
+        _rb = GetComponent<Rigidbody2D>();
+    }
 
-    } // Update is called once per frame
+    
     void Update()
     {
-        platform.position = Vector2.MoveTowards(platform.position, points[currentPoint].position, speed * Time.deltaTime);
-
-        if (platform.position == points [currentPoint].position)
+        //Normal Movement of the player
+        mx = Input.GetAxis("Horizontal");
+        if (mx < 0)
         {
-            currentPoint++;
-
-            if (currentPoint >= points.Count)
-            {
-                currentPoint = 0;
-            }
+            isFacingRight = false;
         }
-        
+        else
+        {
+            isFacingRight = true;
+        }
+        _rb.velocity = new Vector2(mx * speed, _rb.velocity.y);
+
+        if (Input.GetAxisRaw("Horizontal") != 0)
+        {
+            float dir = Input.GetAxisRaw("Horizontal") == 1 ? 0 : 180;
+            shootParent.localEulerAngles = new Vector2(0, dir);
+        }
+        //Player Jump
+        if (Input.GetKeyDown(KeyCode.Space) || isWallSliding && Input.GetKeyDown(KeyCode.Space))
+        {
+            Jump();
+
+            CheckGrounded();
+        }
+
+        //Player Wall Jump
+        if (isFacingRight)
+        {
+            WallCheckHit = Physics2D.Raycast(transform.position, new Vector2(wallDistance, 0), wallDistance, groundLayer);
+            Debug.DrawRay(transform.position, new Vector2(wallDistance, 0), Color.blue);
+        }
+        else
+        {
+            WallCheckHit = Physics2D.Raycast(transform.position, new Vector2(-wallDistance, 0), wallDistance, groundLayer);
+            Debug.DrawRay(transform.position, new Vector2( -wallDistance, 0), Color.blue);
+        }
+
+        //Player Wall Slide
+        if (WallCheckHit && !isGrounded && mx != 0 )
+        {
+            isWallSliding = true;
+            jumpTime = Time.time + wallJumpTime;
+        }
+        else if (jumpTime < Time.time)
+        {
+            isWallSliding = false;
+        }
+
+        if (isWallSliding)
+        {
+            _rb.velocity = new Vector2(_rb.velocity.x, Mathf.Clamp(_rb.velocity.y, wallSlideSpeed, float.MaxValue));
+        }
+
+        //Player Run / Walk alternation
+        if (Input.GetKey (KeyCode.LeftShift))
+        {
+            speed = 13f;
+        }
+        else
+        {
+            speed = 7f;
+        }
+
+        // Player Shot
+         if (Input.GetKeyDown(KeyCode.Mouse1))
+         {
+             GameObject newBullet = Instantiate(bulletPrefab, shootParent.GetChild(0).position, shootParent.GetChild(0).rotation);
+             Destroy(newBullet, 5);
+         }
     }
- 
+
+    private void move(float move)
+    {
+        Vector3 speed = new Vector2(move, _rb.velocity.y);
+        _rb.velocity = Vector3.SmoothDamp(_rb.velocity, speed, ref velocity, MotionSmoothing);
+
+        if (move > 0 && !facingright)
+        {
+            ChangeDirection();
+        }
+        else if (move < 0 && facingright)
+        {
+            ChangeDirection();
+        }
+    }
+
+    private void ChangeDirection()
+    {
+        facingright = !facingright;
+        Vector3 scale = transform.localScale;
+        scale.x *= -1;
+        transform.localScale = scale;
+    }
+
+     //Player Doble Jump
+     void Jump()
+    {
+        if (isGrounded || jumpCount < extraJumps)
+        {
+            _rb.velocity = new Vector2(_rb.velocity.x, jumpPower);
+            jumpCount++;
+        }
+    }
+
+     //Tests if the Player has Runned Out of Jumps or if is in the Ground/ Mid-air
+     void CheckGrounded()
+    {
+        if (Physics2D.OverlapCircle(feet.position, 0.5f, groundLayer) ||  Physics2D.OverlapCircle(feet.position, -0.5f, groundLayer) || isWallSliding)
+        {
+            isGrounded = true;
+            jumpCount = 0;
+            jumpCoolDown = Time.time + 0;
+          
+        }
+        else if (Time.time < jumpCoolDown)
+        {
+            isGrounded = true;
+        }
+        else
+        {
+            isGrounded = false;
+        }
+    }
+    //Makes the Player Being Set on the Platform
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+       
+        if (collision.tag == "MovePlatform")
+        {
+            transform.SetParent(null);
+        }
+
+        if (collision.tag == "Point")
+        {
+            Destroy(collision.gameObject);
+            ScoreControl.SetScore(1);
+        }
+    }
+
+    private void OnTriggerExit2D(Collider2D collision)
+    {
+
+        if (collision.tag == "MovePlatform")
+        {
+            transform.SetParent(collision.transform);
+        }
+    }
 }
+
