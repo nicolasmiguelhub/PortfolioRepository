@@ -1,0 +1,38 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class MovingPlatform : MonoBehaviour
+{
+    public Transform platform;
+    public Transform parentPoints;
+    private List<Transform> points = new List<Transform>();
+    private int currentPoint;
+    public float speed;
+    void Start()
+    {
+        currentPoint = 0;
+        for (int i = 0; i < parentPoints.childCount; i++)
+        {
+            points.Add(parentPoints.GetChild(i));
+            platform.position = points[0].position;
+        }
+
+    } // Update is called once per frame
+    void Update()
+    {
+        platform.position = Vector2.MoveTowards(platform.position, points[currentPoint].position, speed * Time.deltaTime);
+
+        if (platform.position == points [currentPoint].position)
+        {
+            currentPoint++;
+
+            if (currentPoint >= points.Count)
+            {
+                currentPoint = 0;
+            }
+        }
+        
+    }
+ 
+}
