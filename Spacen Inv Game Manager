@@ -1,0 +1,408 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+
+public class GameManager : MonoBehaviour
+{
+    [Header("Player")]
+    private GameObject Player;
+    public float speedPlayer; 
+    private int TotalLives;
+
+    [Header("Enemies")]
+    private List<EnemyProperties> SavedEnemies;
+    private float EnemySpeed, TotalEnemySpeed;
+    public enum EnemyDir { RIGHT, LEFT }
+    public EnemyDir Direction;
+
+    [Header("World")]  
+    public Vector2 LimitStage;
+    public Vector2 InitEnemiesPos;
+    private WorldCreator.WorldProperties CurrentWorld;
+    private float totalSeconds;
+    public GameObject WallPrefab;
+    public int TotalWalls;
+    public Vector2 FirstWallPosition;
+
+    [Header("MENU")]
+    public Transform GridWorld;
+    public GameObject BaseWorld;
+    public GameObject GeneralCanvas;
+    
+
+    public class EnemyProperties
+    {
+        public GameObject EnemyObj;
+        public EnemyCreator.EnemyProperties Enemy;
+
+        public EnemyProperties(GameObject _obj, EnemyCreator.EnemyProperties _enemy)
+        {
+            EnemyObj = _obj;
+            Enemy = _enemy;
+        }
+    }
+    void Start()
+    {
+        PrintMenu();
+    }
+
+
+    void Update()
+    {
+
+        if (Player !=null)
+        {
+            PlayerMovement();
+            if (SavedEnemies.Count > 0)
+            {
+                EnemyMovement();
+            }
+
+            totalSeconds -= Time.deltaTime;
+            if (totalSeconds < 0)
+            {
+                ClearStage(); 
+            }
+        }
+        
+    }
+
+    private void PlayerMovement()
+    {
+        //El PLayer se mueve solo en Horizontal
+        Player.transform.Translate(Vector2.right * Input.GetAxis("Horizontal") * Time.deltaTime * speedPlayer);
+
+        //Limita el movimiento del Player
+        Vector2 CurrentPos = Player.transform.position;
+        CurrentPos.x = Mathf.Clamp(CurrentPos.x, LimitStage.x, LimitStage.y);
+        Player.transform.position = CurrentPos;
+
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            CreateBullet(BulletType.PLAYER, Player.transform.position, 12, Color.blue);
+        }
+
+    }
+    IEnumerator AddCollider(GameObject _obj)
+    {
+        yield return new WaitForSeconds(0.1f);
+
+        if (_obj != null)
+        {
+            _obj.AddComponent<BoxCollider2D>().isTrigger = true;
+            _obj.AddComponent<Rigidbody2D>().gravityScale = 0;
+        }
+     
+    }
+
+    private void PrintMenu()
+    {
+
+        for (int i = GridWorld.childCount - 1; i >= 0; i--)
+        {
+            Destroy(GridWorld.GetChild(i).gameObject);
+        }
+
+        GeneralCanvas.SetActive(true);
+        for (int i = 0; i < WorldCreator.World.Count; i++)
+        {
+            GameObject NewWorld = Instantiate(BaseWorld, GridWorld);
+            NewWorld.transform.Find("Name").GetComponent<Text>().text = WorldCreator.World[i].Name;
+            NewWorld.transform.Find("Lives").GetComponent<Text>().text = "Lives: " + WorldCreator.World[i].Lives;
+            NewWorld.transform.Find("Seconds").GetComponent<Text>().text = "Time: " + WorldCreator.World[i].Seconds;
+
+
+            NewWorld.transform.Find("Image").GetComponent<Image>().sprite = Resources.Load<Sprite>("Worlds/" + WorldCreator.World[i].ID);
+
+            int TempId = WorldCreator.World[i].ID;
+            NewWorld.GetComponent<Button>().onClick.AddListener(delegate { PrintStage(TempId); });
+
+            int totalStars = 0;
+            if (PlayerPrefs.HasKey("World_" + WorldCreator.World[i].ID) == true)
+            {
+                totalStars = PlayerPrefs.GetInt("World_" + WorldCreator.World[i].ID);
+            }
+
+            NewWorld.transform.Find("Stars").GetComponent<Text>().text = "Stars: " + totalStars + "/3";
+
+        }
+
+    }
+
+  
+    private void PrintStage(int _idWorld)
+    {
+        //Quitar el Menú
+        GeneralCanvas.SetActive(false);
+
+        //aquí es donde creo todo el nivel
+        //Imprimir Mundo
+        #region COSAS MUNDO
+        CurrentWorld = WorldCreator.GetWorldById(_idWorld);
+        TotalLives = CurrentWorld.Lives;
+        totalSeconds = CurrentWorld.Seconds;
+
+        float ResetPos = (int) FirstWallPosition.x;
+
+        for (int i = 0; i < TotalWalls; i++)
+        {
+            GameObject NewWall = Instantiate(WallPrefab);
+            NewWall.transform.position = new Vector2(ResetPos, FirstWallPosition.y);
+            ResetPos += 5;
+        }
+
+        #endregion
+        #region PLAYER THINGS 
+
+        //imprimo el player
+        Player = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        Player.name = "Player";
+        Player.tag = "Player";
+        Player.transform.position = new Vector2(0, -6);
+
+        //destruo mesh collider del player y agrego un collider 2D
+        Destroy(Player.GetComponent<MeshCollider>());
+        StartCoroutine(AddCollider(Player));
+
+        //Meto sprite en player
+        GameObject SpritePLayer = new GameObject("Player Sprite");
+        SpritePLayer.transform.SetParent(Player.transform);
+
+        //Escalar imagen del Player
+        SpritePLayer.transform.localScale = new Vector3(1.7f, 1.7f, 1.7f);
+
+        //Colocar imagen en el centro del Player y cargar imagen desde Resources
+        SpritePLayer.transform.localPosition = Vector2.zero;
+        SpritePLayer.AddComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Player");
+
+        //Ocultar MeshRenderer
+        Player.GetComponent<Renderer>().enabled = false;
+
+        #endregion
+        #region ENEMIES THINGS
+        TotalEnemySpeed = 0.7f;
+        SavedEnemies = new List<EnemyProperties>();
+
+        for (int i = 0; i < CurrentWorld.EnemiesId.Count; i++)
+        {
+            for (int j = 0; j < CurrentWorld.Columns; j++)
+            {
+                GameObject NewEnemy = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                NewEnemy.name = "Enemy_" + CurrentWorld.EnemiesId[i];
+                NewEnemy.tag = "Enemy";
+                NewEnemy.transform.position = new Vector2(InitEnemiesPos.x + j, InitEnemiesPos.y - i);
+                NewEnemy.transform.localScale = new Vector3(0.7f, 0.7f, 0.7f);
+                Destroy(NewEnemy.GetComponent<MeshCollider>());
+                StartCoroutine(AddCollider(NewEnemy));
+                NewEnemy.GetComponent<MeshRenderer>().enabled = false;
+
+                GameObject SpriteEnemy = new GameObject(NewEnemy.name);
+                SpriteEnemy.transform.SetParent(NewEnemy.transform);
+                SpriteEnemy.transform.localScale = new Vector3(1.8f, 1.8f, 1.8f);
+                SpriteEnemy.transform.localPosition = new Vector2(0, 0);
+                SpriteEnemy.AddComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>(CurrentWorld.EnemiesId[i] + "/" + CurrentWorld.EnemiesId[i] + "_1");
+
+                EnemyCreator.EnemyProperties TempEnemy = EnemyCreator.GetEnemyById(CurrentWorld.EnemiesId[i]);
+                SpriteEnemy.GetComponent<SpriteRenderer>().color = TempEnemy.Skin;
+
+                NewEnemy.AddComponent<AnimControl>().InitAnim(SpriteEnemy.GetComponent<SpriteRenderer>(), new List<Sprite>(Resources.LoadAll<Sprite>(CurrentWorld.EnemiesId[i].ToString())), 0.4f, AnimType.LOOP);
+                SavedEnemies.Add(new EnemyProperties (NewEnemy, TempEnemy));
+
+            }
+            #endregion
+        }
+    }
+
+    private void EnemyMovement()
+    {
+        EnemySpeed += Time.deltaTime;
+        if (EnemySpeed >= TotalEnemySpeed)
+        {
+            for (int i = 0; i < SavedEnemies.Count; i++)
+            {
+                switch (Direction)
+                {
+                    case EnemyDir.RIGHT:
+                        SavedEnemies[i].EnemyObj.transform.position = new Vector2(SavedEnemies[i].EnemyObj.transform.position.x + 1, SavedEnemies[i].EnemyObj.transform.position.y);
+                        break;
+                    case EnemyDir.LEFT:
+                        SavedEnemies[i].EnemyObj.transform.position = new Vector2(SavedEnemies[i].EnemyObj.transform.position.x - 1, SavedEnemies[i].EnemyObj.transform.position.y);
+                        break;
+                }
+            
+            }
+            int RandomEnemy = Random.Range(0, SavedEnemies.Count);
+            CreateBullet(BulletType.ENEMY, SavedEnemies[RandomEnemy].EnemyObj.transform.position, 12, SavedEnemies[RandomEnemy].EnemyObj.transform.GetChild(0).GetComponent<SpriteRenderer>().color);
+
+            CheckEnemyLimits();
+            EnemySpeed = 0;
+        }
+    }
+    private void CheckEnemyLimits()
+    {
+        for (int i = 0; i < SavedEnemies.Count; i++)
+        {
+            if (SavedEnemies[i].EnemyObj.transform.position.x <= LimitStage.x)
+            {
+                Direction = EnemyDir.RIGHT;
+                SetDownEnemies();
+                break;
+            }
+
+            if (SavedEnemies[i].EnemyObj.transform.position.x >= LimitStage.y)
+            {
+
+                Direction = EnemyDir.LEFT;
+                SetDownEnemies();
+                break;
+            }
+        }
+
+    }
+
+    private void SetDownEnemies()
+    {
+        for (int i = 0; i < SavedEnemies.Count; i++)
+        {
+           SavedEnemies[i].EnemyObj.transform.position = new Vector2(SavedEnemies[i].EnemyObj.transform.position.x, SavedEnemies[i].EnemyObj.transform.position.y - 1);
+
+            TotalEnemySpeed -= 0.1f;
+
+            if (TotalEnemySpeed <= 0.2f)
+            {
+                TotalEnemySpeed = 0.2f;
+            }
+
+            if (SavedEnemies[i].EnemyObj.transform.position.y <= -4)
+            {
+                ClearStage();
+                break;
+            }
+        }
+    }
+
+    private void CreateBullet(BulletType _type, Vector2 _pos, float _speed, Color _color)
+    {
+        GameObject NewBullet = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        NewBullet.name = "Bullet";
+        NewBullet.tag = "Bullet";
+        NewBullet.transform.localScale = new Vector3(0.3f, 0.3f, 0.3f);
+        NewBullet.transform.position = _pos;
+        Destroy(NewBullet.GetComponent<MeshCollider>());
+        StartCoroutine(AddCollider(NewBullet));
+        NewBullet.GetComponent<MeshRenderer>().enabled = false;
+
+        GameObject SpriteBullet = new GameObject("SpriteBullet");
+        SpriteBullet.transform.SetParent(NewBullet.transform);
+        SpriteBullet.transform.localScale = new Vector3(2f, 2f, 2f);
+        SpriteBullet.transform.localPosition = Vector2.zero;
+        SpriteBullet.AddComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Bullet");
+        SpriteBullet.GetComponent<SpriteRenderer>().color = _color;
+
+        if (_type == BulletType.PLAYER)
+        {
+            SpriteBullet.transform.rotation = Quaternion.Euler(0, 0, 180);
+        }
+
+        NewBullet.AddComponent<BulletControl>().InitBullet(_type, _speed, this);
+        Destroy(NewBullet, 3);
+
+    }
+
+    public void GetDamageEnemy(GameObject _obj)
+    {
+        for (int i = 0; i < SavedEnemies.Count; i++)
+        {
+            if (SavedEnemies[i].EnemyObj == _obj)
+            {
+                SavedEnemies[i].Enemy.lives --;
+                if (SavedEnemies[i].Enemy.lives <= 0)
+                {
+                    NewExplosion(SavedEnemies[i].EnemyObj.transform.position, SavedEnemies[i].Enemy.Skin);
+                    Destroy(SavedEnemies[i].EnemyObj);
+                    SavedEnemies.RemoveAt(i);
+                }
+            }
+        }
+
+        if (SavedEnemies.Count == 0)
+        {
+            CheckStars();
+            ClearStage();
+        }
+    }
+
+    private void CheckStars()
+    {
+        float result = (totalSeconds / CurrentWorld.Seconds) * 3;
+        int totalStars = (int)result + 1;
+
+        if (PlayerPrefs.HasKey("World_" + CurrentWorld.ID) == false)
+        {
+            PlayerPrefs.SetInt("World_" + CurrentWorld.ID, totalStars);
+        
+        }
+        else
+        {
+            int TempStars = PlayerPrefs.GetInt("World_" + CurrentWorld.ID);
+            if (TempStars < totalStars)
+            {
+                PlayerPrefs.SetInt("World_" + CurrentWorld.ID, totalStars);
+            }
+        }
+
+    }
+
+    public void GetDamagePlayer()
+    {
+        TotalLives--;
+        if (TotalLives <= 0)
+        {
+            NewExplosion(Player.transform.position, Color.white);
+            
+            ClearStage();
+            print("GAME OVER");
+        }
+    }
+
+    private void ClearStage()
+    {
+        for (int i = 0; i < SavedEnemies.Count; i++)
+        {
+            Destroy(SavedEnemies[i].EnemyObj);
+        }
+
+        SavedEnemies = new List<EnemyProperties>();
+
+        GameObject[] AllBullets = GameObject.FindGameObjectsWithTag("Bullet");
+        for (int i = 0; i < AllBullets.Length; i++)
+        {
+            Destroy(AllBullets[i]);
+        }
+
+        GameObject[] AllWalls = GameObject.FindGameObjectsWithTag("WallParent");
+        for (int i = 0; i < AllWalls.Length; i++)
+        {
+            Destroy(AllWalls[i]);
+        }
+
+        Destroy(Player);
+        PrintMenu();
+    }
+    
+    private void NewExplosion(Vector2 _pos, Color _color)
+    {
+        GameObject NewExplosion = new GameObject("Explosion");
+        NewExplosion.transform.position = _pos;
+        NewExplosion.transform.localScale = new Vector3(0.3f, 0.3f, 0.3f);
+        NewExplosion.AddComponent<SpriteRenderer>();
+        NewExplosion.GetComponent<SpriteRenderer>().color = _color;
+
+        NewExplosion.AddComponent<AnimControl>().InitAnim(NewExplosion.GetComponent<SpriteRenderer>(), new List<Sprite>(Resources.LoadAll<Sprite>("Explosion")), 0.05f, AnimType.ONCE);
+
+      
+    }
+
+}
