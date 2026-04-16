@@ -1,0 +1,168 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class GameManagerBaloon : MonoBehaviour
+{
+    [SerializeField] GameObject _congratulations, _looseText;
+    [SerializeField] GameObject [] _congratulationsPS;
+
+
+    [SerializeField] GameObject _prefabBaloon;
+    [SerializeField] Transform _poolPoint, _spawnPoint;
+
+
+
+    GameObject[] _poolBallons;
+
+    float _timer;
+    int _poolIndex;
+
+    float _gameTimeBaloon;
+    int _baloonsToWin;
+
+
+    private void Awake()
+    {
+        int maxPoolObject = (int) (Constants.MAX_LIFETIME_BALOON / Constants.MIN_TIME_SPAWN_BALOON) * 2;
+        _poolBallons = new GameObject[maxPoolObject];
+
+
+
+
+
+        for (int i = 0; i < _poolBallons.Length; i++)
+        {
+            _poolBallons[i] = Instantiate(_prefabBaloon, _poolPoint.position, Quaternion.identity, _poolPoint);
+            _poolBallons[i].name += "_" +i;
+            _poolBallons[i].GetComponent<BallonController>().gmBaloon = this;
+        }
+            
+            
+
+    }
+    private void OnEnable()
+    {
+
+
+        _poolIndex= 0;
+        _baloonsToWin = 1; //Constants.BALOON_TO_WIN;
+        _gameTimeBaloon = 20; //Constants.BALOON_TO_WIN*Constants.MAX_LIFETIME_BALOON*Constants.MIN_TIME_SPAWN_BALOON;
+
+
+        _congratulations.SetActive(false);
+        _looseText.SetActive(false);
+
+
+        for (int i = 0; i < _congratulationsPS.Length; i++)            //...
+            
+        {
+            _congratulationsPS[i].SetActive(false);
+        }
+
+       
+        ResetTimer();
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        _gameTimeBaloon -= Time.deltaTime;
+
+        if (_gameTimeBaloon<=0)
+        {
+            //TODO: : Loose
+            SendAllObjectsToPool();
+            _looseText.SetActive(true);
+            StartCoroutine(BackToMenu());
+
+        }
+
+        else
+        {
+            if(_baloonsToWin>0)
+            { 
+                _timer -= Time.deltaTime;
+
+                 if (_timer < 0)
+                 {
+                    ResetTimer();
+                    float t = Random.Range(Constants.MIN_LIFETIME_BALOON, Constants.MAX_LIFETIME_BALOON);
+                    StartCoroutine(BaloonLifeTimePassed(GetObjectFromPool(), t));
+
+                 }
+
+            }
+        }
+       
+        
+    }
+
+    private IEnumerator BaloonLifeTimePassed(GameObject go, float t)
+    {
+        yield return new WaitForSeconds(t);
+        go.GetComponent<BallonController>().DisableInteraction();
+        yield return new WaitForSeconds(Constants.PS_EXPLOSION_LIFETIME); 
+        PutObjectToPool(go);
+    }
+
+    public void PutObjectToPool(GameObject go)
+    {
+        go.transform.parent = _poolPoint;
+        go.transform.position= _poolPoint.position;
+
+    }
+
+    public GameObject GetObjectFromPool()
+    {
+        GameObject go = _poolBallons[_poolIndex];
+        _poolIndex++;
+
+        if (_poolIndex >= _poolBallons.Length)
+            _poolIndex= 0;
+
+
+        go.transform.position = _spawnPoint.position;
+        go.transform.parent = null;
+
+        return go;
+
+    }
+
+    private void ResetTimer()
+    {
+        _timer = Random.Range(Constants.MIN_TIME_SPAWN_BALOON, Constants.MAX_LIFETIME_BALOON);
+    }
+
+    private void SendAllObjectsToPool()
+    {
+        for (int i = 0; i < _poolBallons.Length; i++)
+        {
+            _poolBallons[i].transform.position = _poolPoint.position;
+            _poolBallons[i].transform.parent = _poolPoint;
+        }
+    }
+
+    IEnumerator BackToMenu()
+    {
+        yield return new WaitForSeconds(Constants.TIME_BACK_TO_MENU);
+        //rdy Activar Menu
+        gameObject.SetActive(false);
+    }
+    public void BaloonTouched()
+    {
+        _baloonsToWin -= 1;
+        if(_baloonsToWin==0)
+        {
+            //rdy: : Win
+            SendAllObjectsToPool();
+            _congratulations.SetActive(true);
+            for (int i = 0; i < _congratulationsPS.Length; i++)
+            {
+                _congratulationsPS[i].SetActive(true);
+            }
+
+            StartCoroutine(BackToMenu());
+        }
+    }
+}
