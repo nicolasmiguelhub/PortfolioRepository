@@ -1,0 +1,116 @@
+using UnityEngine;
+using UnityEngine.EventSystems;
+
+public class StadiumPanZoom : MonoBehaviour, IPointerDownHandler, IDragHandler
+{
+    public RectTransform target; // Imagen del estadio
+    public RectTransform boundary; // Marco que limita el movimiento
+    public float zoomSpeed = 0.1f;
+    public float moveSpeed = 1f;
+    public float dragSmoothTime = 0.1f;
+    public float minZoom = 0.5f;
+    public float maxZoom = 2f;
+
+    private Vector2 lastMousePosition;
+    private Vector2 velocity = Vector2.zero;
+    private Vector2 targetPosition;
+    private bool isDragging = false;
+
+    private Canvas canvas;
+
+    void Start()
+    {
+        if (target == null)
+            target = GetComponent<RectTransform>();
+
+        canvas = GetComponentInParent<Canvas>();
+        targetPosition = target.anchoredPosition;
+    }
+
+    void Update()
+    {
+        HandleZoom();
+        ClampToBounds();
+        SmoothMove();
+    }
+
+    void HandleZoom()
+    {
+        float scroll = Input.mouseScrollDelta.y;
+        if (scroll != 0)
+        {
+            Vector2 mousePos;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                target,
+                Input.mousePosition,
+                canvas.worldCamera,
+                out mousePos
+            );
+
+            float currentScale = target.localScale.x;
+            float newScale = Mathf.Clamp(currentScale + scroll * zoomSpeed, minZoom, maxZoom);
+            float scaleRatio = newScale / currentScale;
+
+            // Ajustar posiciÃ³n para mantener el punto del cursor como centro de zoom
+            Vector2 pivotToMouse = mousePos;
+            targetPosition += pivotToMouse * (1 - scaleRatio);
+
+            // Aplicar nuevo escalado
+            target.localScale = new Vector3(newScale, newScale, 1f);
+        }
+    }
+
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        if (RectTransformUtility.RectangleContainsScreenPoint(target, eventData.position, eventData.pressEventCamera))
+        {
+            isDragging = true;
+            lastMousePosition = eventData.position;
+        }
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        if (!isDragging) return;
+
+        Vector2 delta = (eventData.position - lastMousePosition) * moveSpeed / canvas.scaleFactor;
+        targetPosition += delta;
+        lastMousePosition = eventData.position;
+    }
+
+    void ClampToBounds()
+    {
+        if (boundary == null) return;
+
+        Vector3[] boundaryCorners = new Vector3[4];
+        Vector3[] targetCorners = new Vector3[4];
+
+        boundary.GetWorldCorners(boundaryCorners);
+        target.GetWorldCorners(targetCorners);
+
+        // Convertimos a coordenadas locales del canvas
+        for (int i = 0; i < 4; i++)
+        {
+            boundaryCorners[i] = canvas.transform.InverseTransformPoint(boundaryCorners[i]);
+            targetCorners[i] = canvas.transform.InverseTransformPoint(targetCorners[i]);
+        }
+
+        Vector2 sizeDelta = target.rect.size * target.localScale.x;
+        Vector2 minPosition = (Vector2)boundaryCorners[0] + sizeDelta / 2f;
+        Vector2 maxPosition = (Vector2)boundaryCorners[2] - sizeDelta / 2f;
+
+        targetPosition.x = Mathf.Clamp(targetPosition.x, minPosition.x, maxPosition.x);
+        targetPosition.y = Mathf.Clamp(targetPosition.y, minPosition.y, maxPosition.y);
+    }
+
+
+    void SmoothMove()
+    {
+        target.anchoredPosition = Vector2.SmoothDamp(
+            target.anchoredPosition,
+            targetPosition,
+            ref velocity,
+            dragSmoothTime
+        );
+    }
+}
