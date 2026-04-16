@@ -1,0 +1,45 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class VolumeOptions : MonoBehaviour
+{
+    public Slider slider;
+    public float sliderValue;
+    public Image imageMute;
+
+    //Volume Controller.
+    void Start()
+    {
+        slider.value = PlayerPrefs.GetFloat("AudioVolume", 0.5f);
+        AudioListener.volume = sliderValue;
+        CheckIfImmuted();
+
+    }
+     public void ChangeSlider(float value)
+    {
+        sliderValue = value;
+        PlayerPrefs.SetFloat("AudioVolume", sliderValue);
+        AudioListener.volume = sliderValue;
+        CheckIfImmuted();
+    }
+
+    //Check if the Music is Muted (Value = 0).
+    public void CheckIfImmuted()
+    {
+        if (sliderValue == 0)
+        {
+            imageMute.enabled = true;
+        }
+        else
+        {
+            imageMute.enabled = false;
+        }
+    }
+
+    void Update()
+    {
+        
+    }
+}
