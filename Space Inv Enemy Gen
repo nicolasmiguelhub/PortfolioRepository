@@ -1,0 +1,50 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class EnemyCreator : MonoBehaviour
+{
+    public class EnemyProperties
+    {
+        public int ID;
+        public Color Skin;
+        public int lives;
+    }
+
+    static public List<EnemyProperties> Enemies = new List<EnemyProperties>()
+    {
+        new EnemyProperties(){ID = 0, Skin = Color.green, lives = 1},
+        new EnemyProperties(){ID = 1, Skin = Color.yellow, lives = 2},
+        new EnemyProperties(){ID = 2, Skin = Color.red, lives = 3},
+        new EnemyProperties(){ID = 3, Skin = Color.blue, lives = 5},
+        new EnemyProperties(){ID = 4, Skin = Color.white, lives = 50},
+
+    };
+
+    static public EnemyProperties CloneEnemies (EnemyProperties _enemy)
+    {
+        EnemyProperties NewEnemy = new EnemyProperties
+        {
+            ID = _enemy.ID,
+            Skin = _enemy.Skin,
+            lives = _enemy.lives,
+        };
+
+        return NewEnemy;
+    }
+
+    static public EnemyProperties GetEnemyById (int _id)
+    {
+        for (int i = 0; i < Enemies.Count; i++)
+        {
+            if (Enemies[i].ID == _id)
+            {
+                return CloneEnemies(Enemies[i]);
+            }
+        }
+
+        return null;
+    }
+
+
+}
