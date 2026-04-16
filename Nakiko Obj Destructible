@@ -1,0 +1,31 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Objectdestructible : MonoBehaviour
+{
+    public int lifePoints;
+    public bool canDestroy;
+
+    private void Awake()
+    {
+        GetComponent<BoxCollider2D>().isTrigger = true;
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.tag == "Bullet")
+        {
+            if (canDestroy)
+            {
+                //Destruyo la bala
+                Destroy(collision.gameObject);
+
+                lifePoints--;
+
+                if (lifePoints <= 0)
+                    Destroy(gameObject);
+            }
+        }
+    }
+}
