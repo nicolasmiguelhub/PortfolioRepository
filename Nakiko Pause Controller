@@ -1,38 +1,64 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
-public class MovingPlatform : MonoBehaviour
+public class PauseController : MonoBehaviour
 {
-    public Transform platform;
-    public Transform parentPoints;
-    private List<Transform> points = new List<Transform>();
-    private int currentPoint;
-    public float speed;
-    void Start()
+    [SerializeField] public GameObject PauseButton; 
+    [SerializeField] public GameObject PauseMenu;
+
+    private bool PausedGame = false;
+
+    //Makes the Selected Button in the Scene be Able to Pause the Game, also they Key Escape can Stop the Game and Set on the Pause Menu.
+    private void Update()
     {
-        currentPoint = 0;
-        for (int i = 0; i < parentPoints.childCount; i++)
+        if (Input.GetKeyDown(KeyCode.Escape))
         {
-            points.Add(parentPoints.GetChild(i));
-            platform.position = points[0].position;
-        }
-
-    } // Update is called once per frame
-    void Update()
-    {
-        platform.position = Vector2.MoveTowards(platform.position, points[currentPoint].position, speed * Time.deltaTime);
-
-        if (platform.position == points [currentPoint].position)
-        {
-            currentPoint++;
-
-            if (currentPoint >= points.Count)
+            if (PausedGame)
             {
-                currentPoint = 0;
+                Continue();
+            }
+            else
+            {
+                Pause();
             }
         }
-        
     }
- 
+    //Pause the Game.
+    public void Pause()
+    {
+        
+        Time.timeScale = 0f;
+        PauseButton.SetActive(false);
+        PauseMenu.SetActive(true);
+    }
+
+    //Makes Continue the Game.
+    public void Continue()
+    {
+        Time.timeScale = 1f;
+        PauseButton.SetActive(true);
+        PauseMenu.SetActive(false);
+    }
+
+    //Restarts the Level.
+    public void Restart()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    //Makes the Player Return to the Start Menu.
+    public void BacktoMenu()
+    {
+        SceneManager.LoadScene("Start Menu");
+    }
+
+    //Closes the Game.
+    public void ExitGame()
+    {
+        Debug.Log("Quitting Game");
+        Application.Quit();
+    }
 }
